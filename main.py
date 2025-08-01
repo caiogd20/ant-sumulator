@@ -63,6 +63,15 @@ class Formiga:
             self.cx = novo_cx
             self.cy = novo_cy
 
+class Comida:
+    def __init__(self, cx, cy):
+        self.cx = cx
+        self.cy = cy
+
+    def draw(self, superficie):
+        centro_x = self.cx * tamanho_celula + tamanho_celula // 2
+        centro_y = self.cy * tamanho_celula + tamanho_celula // 2
+        pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 5)
 
 # ----- PYGAME SETUP -----
 pygame.init()
@@ -75,9 +84,14 @@ black = (0, 0, 0)
 
 pygame.mouse.set_visible(False)
 
-formigas = {}
+formigas = []
 for i in range(5):
-    formigas[i] = Formiga(formiguero_cx, formiguero_cy, black)
+    formigas.append(Formiga(formiguero_cx, formiguero_cy, black))
+comidas = []
+for i in range(5):
+    comida_x = random.randint(0, cols - 1)
+    comida_y = random.randint(0, rows - 1)
+    comidas.append(Comida(comida_x, comida_y))
 
 # ----- LOOP PRINCIPAL -----
 while True:
@@ -95,8 +109,11 @@ while True:
 
     # Mover e desenhar as formigas
     for i in formigas:
-        formigas[i].move()
-        formigas[i].draw(DISPLAYSURF)
+        i.move()
+        i.draw(DISPLAYSURF)
+    for c in comidas:
+        c.draw(DISPLAYSURF)
+    
 
     pygame.display.update()
     clock.tick(30)
