@@ -39,12 +39,14 @@ grade[formiguero_cy][formiguero_cx] = Celula(tipo="formigueiro")
 
 # ----- FORMIGA -----
 class Formiga:
-    def __init__(self, cx, cy , color):
+    def __init__(self, cx, cy , color, formigueiro_cx, formigueiro_cy):
         self.cx = cx
         self.cy = cy
         self.color = color
         self.carregando_comida = False
-        self.frame_delay = 0 
+        self.frame_delay = 0
+        self.formigueiro_cx = formigueiro_cx
+        self.formigueiro_cy = formigueiro_cy 
 
     def draw(self, superficie):
         centro_x = self.cx * tamanho_celula + tamanho_celula // 2
@@ -57,14 +59,17 @@ class Formiga:
         self.frame_delay += 1
         if self.frame_delay >= 5:
             self.frame_delay = 0
-            dx = random.randint(-1, 1)
-            dy = random.randint(-1, 1)
+            if self.carregando_comida:
+                self.ir_para(self.formigueiro_cx, self.formigueiro_cy)
+            else:
+                dx = random.randint(-1, 1)
+                dy = random.randint(-1, 1)
 
-            novo_cx = max(0, min(self.cx + dx, cols - 1))
-            novo_cy = max(0, min(self.cy + dy, rows - 1))
+                novo_cx = max(0, min(self.cx + dx, cols - 1))
+                novo_cy = max(0, min(self.cy + dy, rows - 1))
 
-            self.cx = novo_cx
-            self.cy = novo_cy
+                self.cx = novo_cx
+                self.cy = novo_cy
     def tentar_coletar_comida(self, lista_de_comidas):
         for comida in lista_de_comidas:
             if comida.cx == self.cx and comida.cy == self.cy:
@@ -76,6 +81,24 @@ class Formiga:
             self.carregando_comida = False
             return True  # comida entregue
         return False
+    def ir_para(self, destino_cx, destino_cy):
+        dx = 0
+        dy = 0
+        if self.cx < destino_cx:
+            dx = 1
+        elif self.cx > destino_cx:
+            dx = -1
+        if self.cy < destino_cy:
+            dy = 1
+        elif self.cy > destino_cy:
+            dy = -1
+
+        novo_cx = max(0, min(self.cx + dx, cols - 1))
+        novo_cy = max(0, min(self.cy + dy, rows - 1))
+
+        self.cx = novo_cx
+        self.cy = novo_cy
+
 
 class Comida:
     def __init__(self, cx, cy):
@@ -100,7 +123,7 @@ pygame.mouse.set_visible(False)
 
 formigas = []
 for i in range(5):
-    formigas.append(Formiga(formiguero_cx, formiguero_cy, black))
+    formigas.append(Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy))
 comidas = []
 for i in range(5):
     comida_x = random.randint(0, cols - 1)
