@@ -43,6 +43,7 @@ class Formiga:
         self.cx = cx
         self.cy = cy
         self.color = color
+        self.frame_delay = 0 
 
     def draw(self, superficie):
         centro_x = self.cx * tamanho_celula + tamanho_celula // 2
@@ -50,14 +51,17 @@ class Formiga:
         pygame.draw.circle(superficie, self.color, (centro_x, centro_y), 5)
 
     def move(self):
-        dx = random.randint(-1, 1)
-        dy = random.randint(-1, 1)
+        self.frame_delay += 1
+        if self.frame_delay >= 5:
+            self.frame_delay = 0
+            dx = random.randint(-1, 1)
+            dy = random.randint(-1, 1)
 
-        novo_cx = max(0, min(self.cx + dx, cols - 1))
-        novo_cy = max(0, min(self.cy + dy, rows - 1))
+            novo_cx = max(0, min(self.cx + dx, cols - 1))
+            novo_cy = max(0, min(self.cy + dy, rows - 1))
 
-        self.cx = novo_cx
-        self.cy = novo_cy
+            self.cx = novo_cx
+            self.cy = novo_cy
 
 
 # ----- PYGAME SETUP -----
