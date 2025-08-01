@@ -71,6 +71,11 @@ class Formiga:
                 self.carregando_comida = True
                 lista_de_comidas.remove(comida)
                 break
+    def tentar_entregar_comida(self, formigueiro_cx, formigueiro_cy):
+        if self.carregando_comida and self.cx == formigueiro_cx and self.cy == formigueiro_cy:
+            self.carregando_comida = False
+            return True  # comida entregue
+        return False
 
 class Comida:
     def __init__(self, cx, cy):
@@ -101,6 +106,8 @@ for i in range(5):
     comida_x = random.randint(0, cols - 1)
     comida_y = random.randint(0, rows - 1)
     comidas.append(Comida(comida_x, comida_y))
+energia_colonia = 0
+
 
 # ----- LOOP PRINCIPAL -----
 while True:
@@ -120,10 +127,21 @@ while True:
     for f in formigas:
         f.move()
         f.tentar_coletar_comida(comidas)
+        if f.tentar_entregar_comida(formiguero_cx, formiguero_cy):
+            energia_colonia += 1
         f.draw(DISPLAYSURF)
+
     for c in comidas:
         c.draw(DISPLAYSURF)
     
+    font = pygame.font.SysFont(None, 24)
+    texto = font.render(f'Energia: {energia_colonia}', True, (0, 0, 0))
+    proxima = max(0, 3 - energia_colonia)
+    texto1 = font.render(f'Faltam {proxima} para nova formiga', True, (0, 0, 0))
+
+    DISPLAYSURF.blit(texto, (10, 10))       # primeira linha de texto
+    DISPLAYSURF.blit(texto1, (10, 30))      # segunda linha, mais abaixo
+
 
     pygame.display.update()
     clock.tick(30)
