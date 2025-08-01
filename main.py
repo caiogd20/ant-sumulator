@@ -11,17 +11,21 @@ class Formiga:
         pygame.draw.circle(superficie, self.color, self.pos, 5)
 
     def move(self):
-        self.pos = (self.pos[0] + random.randint(-1, 1), 
-                    self.pos[1] + random.randint(-1, 1))
+        dx = random.randint(-2, 2)
+        dy = random.randint(-2, 2)
+        new_x = max(0, min(self.pos[0] + dx, largura))
+        new_y = max(0, min(self.pos[1] + dy, altura))
+        self.pos = (new_x, new_y)
 
 pygame.init()
-altura = 500
-largura = 500
+clock = pygame.time.Clock()
+altura = 600
+largura = 600
 formigas = {}
 formiguero_pos = (altura / 2, largura / 2)
 DISPLAYSURF = pygame.display.set_mode((altura, largura))
 pygame.display.set_caption('ant simulator')
-green = (0, 255, 0)
+green = (34, 139, 34)  # verde folha
 brawn = (165, 42, 42)
 black = (0, 0, 0)
 pygame.mouse.set_visible(False)
@@ -44,4 +48,5 @@ while True:
         formigas[i].draw(DISPLAYSURF)  # Desenha a formiga
 
     pygame.draw.circle(DISPLAYSURF, brawn, formiguero_pos, 20)
+    clock.tick(30)
     pygame.display.update()
