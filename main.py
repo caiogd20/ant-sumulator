@@ -43,12 +43,15 @@ class Formiga:
         self.cx = cx
         self.cy = cy
         self.color = color
+        self.carregando_comida = False
         self.frame_delay = 0 
 
     def draw(self, superficie):
         centro_x = self.cx * tamanho_celula + tamanho_celula // 2
         centro_y = self.cy * tamanho_celula + tamanho_celula // 2
         pygame.draw.circle(superficie, self.color, (centro_x, centro_y), 5)
+        if self.carregando_comida:
+            pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 3)
 
     def move(self):
         self.frame_delay += 1
@@ -62,6 +65,12 @@ class Formiga:
 
             self.cx = novo_cx
             self.cy = novo_cy
+    def tentar_coletar_comida(self, lista_de_comidas):
+        for comida in lista_de_comidas:
+            if comida.cx == self.cx and comida.cy == self.cy:
+                self.carregando_comida = True
+                lista_de_comidas.remove(comida)
+                break
 
 class Comida:
     def __init__(self, cx, cy):
@@ -71,7 +80,7 @@ class Comida:
     def draw(self, superficie):
         centro_x = self.cx * tamanho_celula + tamanho_celula // 2
         centro_y = self.cy * tamanho_celula + tamanho_celula // 2
-        pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 5)
+        pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 3)
 
 # ----- PYGAME SETUP -----
 pygame.init()
@@ -108,9 +117,10 @@ while True:
     
 
     # Mover e desenhar as formigas
-    for i in formigas:
-        i.move()
-        i.draw(DISPLAYSURF)
+    for f in formigas:
+        f.move()
+        f.tentar_coletar_comida(comidas)
+        f.draw(DISPLAYSURF)
     for c in comidas:
         c.draw(DISPLAYSURF)
     
