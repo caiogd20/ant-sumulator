@@ -118,6 +118,8 @@ clock = pygame.time.Clock()
 
 
 black = (0, 0, 0)
+CUSTO_NOVA_FORMIGA = 5
+LIMITE_FORMIGAS = 50
 
 pygame.mouse.set_visible(False)
 
@@ -152,6 +154,10 @@ while True:
         f.tentar_coletar_comida(comidas)
         if f.tentar_entregar_comida(formiguero_cx, formiguero_cy):
             energia_colonia += 1
+        if energia_colonia >= CUSTO_NOVA_FORMIGA and len(formigas) < LIMITE_FORMIGAS:
+            nova_formiga = Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy)
+            formigas.append(nova_formiga)
+            energia_colonia -= CUSTO_NOVA_FORMIGA
         f.draw(DISPLAYSURF)
 
     for c in comidas:
@@ -159,11 +165,13 @@ while True:
     
     font = pygame.font.SysFont(None, 24)
     texto = font.render(f'Energia: {energia_colonia}', True, (0, 0, 0))
-    proxima = max(0, 3 - energia_colonia)
+    proxima = max(0, CUSTO_NOVA_FORMIGA - energia_colonia)
     texto1 = font.render(f'Faltam {proxima} para nova formiga', True, (0, 0, 0))
+    texto2 = font.render(f'Formigas: {len(formigas)}', True, (0, 0, 0))
 
     DISPLAYSURF.blit(texto, (10, 10))       # primeira linha de texto
-    DISPLAYSURF.blit(texto1, (10, 30))      # segunda linha, mais abaixo
+    DISPLAYSURF.blit(texto1, (10, 30))
+    DISPLAYSURF.blit(texto2, (10, 50))      # segunda linha, mais abaixo
 
 
     pygame.display.update()
