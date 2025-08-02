@@ -46,7 +46,9 @@ class Formiga:
         self.carregando_comida = False
         self.frame_delay = 0
         self.formigueiro_cx = formigueiro_cx
-        self.formigueiro_cy = formigueiro_cy 
+        self.formigueiro_cy = formigueiro_cy
+        self.ultima_comida_encontrada_cx = None
+        self.ultima_comida_encontrada_cy = None 
 
     def draw(self, superficie):
         centro_x = self.cx * tamanho_celula + tamanho_celula // 2
@@ -61,6 +63,8 @@ class Formiga:
             self.frame_delay = 0
             if self.carregando_comida:
                 self.ir_para(self.formigueiro_cx, self.formigueiro_cy)
+            elif self.ultima_comida_encontrada_cx is not None and self.ultima_comida_encontrada_cy is not None:
+                self.ir_para(self.ultima_comida_encontrada_cx, self.ultima_comida_encontrada_cy)
             else:
                 dx = random.randint(-1, 1)
                 dy = random.randint(-1, 1)
@@ -75,7 +79,7 @@ class Formiga:
             if comida.cx == self.cx and comida.cy == self.cy:
                 self.carregando_comida = True
                 lista_de_comidas.remove(comida)
-                break
+                return self.cx, self.cy  # retorna a posição da comida coletada
     def tentar_entregar_comida(self, formigueiro_cx, formigueiro_cy):
         if self.carregando_comida and self.cx == formigueiro_cx and self.cy == formigueiro_cy:
             self.carregando_comida = False
@@ -98,6 +102,9 @@ class Formiga:
 
         self.cx = novo_cx
         self.cy = novo_cy
+    def set_ultima_comida_encontrada(self, cx, cy):
+        self.ultima_comida_encontrada_cx = cx
+        self.ultima_comida_encontrada_cy = cy
 
 
 class Comida:
@@ -154,7 +161,13 @@ while True:
     # Mover e desenhar as formigas
     for f in formigas:
         f.move()
-        f.tentar_coletar_comida(comidas)
+        pos_coleta = f.tentar_coletar_comida(comidas)
+        if pos_coleta:
+            cx, cy = pos_coleta
+            for f1 in formigas:
+                if f1 != f:
+                    f1.set_ultima_comida_encontrada(cx, cy)
+                    
         if f.tentar_entregar_comida(formiguero_cx, formiguero_cy):
             energia_colonia += 1
         if energia_colonia >= CUSTO_NOVA_FORMIGA and len(formigas) < LIMITE_FORMIGAS:
