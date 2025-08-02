@@ -84,7 +84,6 @@ class Formiga:
             if comida.cx == self.cx and comida.cy == self.cy:
                 self.carregando_comida = True
                 lista_de_comidas.remove(comida)
-                return self.cx, self.cy  # retorna a posição da comida coletada
     def tentar_entregar_comida(self, formigueiro_cx, formigueiro_cy):
         if self.carregando_comida and self.cx == formigueiro_cx and self.cy == formigueiro_cy:
             self.carregando_comida = False
@@ -110,6 +109,16 @@ class Formiga:
     def set_ultima_comida_encontrada(self, cx, cy):
         self.ultima_comida_encontrada_cx = cx
         self.ultima_comida_encontrada_cy = cy
+    def compartilhar_informacao(self, outras_formigas):
+        if self.carregando_comida and self.ultima_comida_encontrada_cx is not None:
+            for outra in outras_formigas:
+                if outra != self:
+                    dist = abs(outra.cx - self.cx) + abs(outra.cy - self.cy)
+                    if dist == 1:  # célula adjacente
+                        outra.set_ultima_comida_encontrada(
+                            self.ultima_comida_encontrada_cx,
+                            self.ultima_comida_encontrada_cy
+                    )
 
 
 class Comida:
@@ -166,19 +175,14 @@ while True:
     # Mover e desenhar as formigas
     for f in formigas:
         f.move()
-        pos_coleta = f.tentar_coletar_comida(comidas)
-        if pos_coleta:
-            cx, cy = pos_coleta
-            for f1 in formigas:
-                if f1 != f:
-                    f1.set_ultima_comida_encontrada(cx, cy)
-                    
+        f.tentar_coletar_comida(comidas)
         if f.tentar_entregar_comida(formiguero_cx, formiguero_cy):
             energia_colonia += 1
         if energia_colonia >= CUSTO_NOVA_FORMIGA and len(formigas) < LIMITE_FORMIGAS:
             nova_formiga = Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy)
             formigas.append(nova_formiga)
             energia_colonia -= CUSTO_NOVA_FORMIGA
+        f.compartilhar_informacao(formigas)
         f.draw(DISPLAYSURF)
 
     for c in comidas:
