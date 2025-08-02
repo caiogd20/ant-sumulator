@@ -61,6 +61,11 @@ class Formiga:
         self.frame_delay += 1
         if self.frame_delay >= 5:
             self.frame_delay = 0
+            if (self.cx == self.ultima_comida_encontrada_cx and 
+                self.cy == self.ultima_comida_encontrada_cy and 
+                not self.carregando_comida):
+                self.ultima_comida_encontrada_cx = None
+                self.ultima_comida_encontrada_cy = None
             if self.carregando_comida:
                 self.ir_para(self.formigueiro_cx, self.formigueiro_cy)
             elif self.ultima_comida_encontrada_cx is not None and self.ultima_comida_encontrada_cy is not None:
