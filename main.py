@@ -13,7 +13,7 @@ cor_grama =lambda: (0, random.randint(120, 180), 0)
 cor_formigueiro = (139, 69, 19)  # marrom
 
 class Celula:
-    def __init__(self, tipo="grama"):
+    def __init__(self, tipo="grama", comida=0):
         # Variações leves de verde
         self.tipo = tipo
         self.estado = "normal"  # depois podemos usar: "pisada", "comida", "feromonio", etc.
@@ -21,6 +21,7 @@ class Celula:
             self.cor = cor_formigueiro
         else:
             self.cor = cor_grama()
+        self.comida = comida
 
     def desenhar(self, superficie, x, y):
         pygame.draw.rect(
@@ -28,6 +29,14 @@ class Celula:
             self.cor,
             (x * tamanho_celula, y * tamanho_celula, tamanho_celula, tamanho_celula)
         )
+        if self.comida > 0:
+            tamanho = self.comida * 2  # tamanho do círculo proporcional à quantidade de comida
+            pygame.draw.circle(
+                superficie,
+                (255, 0, 0),  # amarelo para comida
+                (x * tamanho_celula + tamanho_celula // 2, y * tamanho_celula + tamanho_celula // 2),
+                tamanho
+            )
 
 # Inicializa a grade com células do tipo "grama"
 grade = [[Celula() for _ in range(cols)] for _ in range(rows)]
@@ -53,7 +62,7 @@ class Formiga:
         centro_y = self.cy * tamanho_celula + tamanho_celula // 2
         pygame.draw.circle(superficie, self.color, (centro_x, centro_y), 5)
         if self.carregando_comida:
-            pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 3)
+            pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 2)
 
     def move(self):
         self.frame_delay += 1
@@ -70,12 +79,13 @@ class Formiga:
 
                 self.cx = novo_cx
                 self.cy = novo_cy
-    def tentar_coletar_comida(self, lista_de_comidas):
-        for comida in lista_de_comidas:
-            if comida.cx == self.cx and comida.cy == self.cy:
+    def tentar_coletar_comida(self):
+       if not self.carregando_comida:
+            celula = grade[self.cy][self.cx]
+            if celula.comida > 0:
+                celula.comida -= 1
                 self.carregando_comida = True
-                lista_de_comidas.remove(comida)
-                break
+                return True
     def tentar_entregar_comida(self, formigueiro_cx, formigueiro_cy):
         if self.carregando_comida and self.cx == formigueiro_cx and self.cy == formigueiro_cy:
             self.carregando_comida = False
@@ -100,15 +110,7 @@ class Formiga:
         self.cy = novo_cy
 
 
-class Comida:
-    def __init__(self, cx, cy):
-        self.cx = cx
-        self.cy = cy
 
-    def draw(self, superficie):
-        centro_x = self.cx * tamanho_celula + tamanho_celula // 2
-        centro_y = self.cy * tamanho_celula + tamanho_celula // 2
-        pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 3)
 
 # ----- PYGAME SETUP -----
 pygame.init()
@@ -129,11 +131,10 @@ pygame.mouse.set_visible(False)
 formigas = []
 for i in range(5):
     formigas.append(Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy))
-comidas = []
 for i in range(5):
     comida_x = random.randint(0, cols - 1)
     comida_y = random.randint(0, rows - 1)
-    comidas.append(Comida(comida_x, comida_y))
+    grade[comida_y][comida_x].comida += 1
 energia_colonia = 0
 
 
@@ -154,7 +155,7 @@ while True:
     # Mover e desenhar as formigas
     for f in formigas:
         f.move()
-        f.tentar_coletar_comida(comidas)
+        f.tentar_coletar_comida()
         if f.tentar_entregar_comida(formiguero_cx, formiguero_cy):
             energia_colonia += 1
         if energia_colonia >= CUSTO_NOVA_FORMIGA and len(formigas) < LIMITE_FORMIGAS:
@@ -163,8 +164,7 @@ while True:
             energia_colonia -= CUSTO_NOVA_FORMIGA
         f.draw(DISPLAYSURF)
 
-    for c in comidas:
-        c.draw(DISPLAYSURF)
+    
 
     font = pygame.font.SysFont(None, 24)
     texto = font.render(f'Energia: {energia_colonia}', True, (0, 0, 0))
@@ -178,17 +178,18 @@ while True:
     contador_frames += 1
     if contador_frames >= FREQUENCIA_COMIDA:
         contador_frames = 0
-
-        if len(comidas) < MAX_COMIDAS:
+        
+        total_comida = sum(c.comida for row in grade for c in row)
+        if total_comida < MAX_COMIDAS:
             tentativas = 0
             while tentativas < 10:  # tenta no máximo 10 posições aleatórias
                 comida_x = random.randint(0, cols - 1)
                 comida_y = random.randint(0, rows - 1)
 
                 # Garante que a célula não seja o formigueiro nem tenha outra comida
-                if (comida_x != formiguero_cx or comida_y != formiguero_cy) and \
-                all(c.cx != comida_x or c.cy != comida_y for c in comidas):
-                    comidas.append(Comida(comida_x, comida_y))
+                if (comida_x != formiguero_cx or comida_y != formiguero_cy):
+                    grade[comida_y][comida_x].comida += 1
+                    #comidas.append(Comida(comida_x, comida_y))
                     break
                 tentativas += 1
 
