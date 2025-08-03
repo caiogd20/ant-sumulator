@@ -9,14 +9,14 @@ cols = largura // tamanho_celula
 rows = altura // tamanho_celula
 
 # cor das células
-cor_grama =lambda: (0, random.randint(120, 180), 0)
+cor_grama = lambda: (0, random.randint(120, 180), 0)
 cor_formigueiro = (139, 69, 19)  # marrom
 
 class Celula:
     def __init__(self, tipo="grama"):
-        # Variações leves de verde
         self.tipo = tipo
-        self.estado = "normal"  # depois podemos usar: "pisada", "comida", "feromonio", etc.
+        self.estado = "normal"
+        self.feromonio = 0.0
         if tipo == "formigueiro":
             self.cor = cor_formigueiro
         else:
@@ -28,18 +28,22 @@ class Celula:
             self.cor,
             (x * tamanho_celula, y * tamanho_celula, tamanho_celula, tamanho_celula)
         )
+        if self.feromonio > 0:
+            intensidade = min(255, int(self.feromonio * 10))
+            cor = (0, 0, intensidade)
+            s = pygame.Surface((tamanho_celula, tamanho_celula))
+            s.set_alpha(80)
+            s.fill(cor)
+            superficie.blit(s, (x * tamanho_celula, y * tamanho_celula))
 
-# Inicializa a grade com células do tipo "grama"
+# Inicializa a grade
 grade = [[Celula() for _ in range(cols)] for _ in range(rows)]
-# Define posição central para o formigueiro
 formiguero_cx = cols // 2
 formiguero_cy = rows // 2
-# Define a célula do formigueiro
 grade[formiguero_cy][formiguero_cx] = Celula(tipo="formigueiro")
 
-# ----- FORMIGA -----
 class Formiga:
-    def __init__(self, cx, cy , color, formigueiro_cx, formigueiro_cy):
+    def __init__(self, cx, cy, color, formigueiro_cx, formigueiro_cy):
         self.cx = cx
         self.cy = cy
         self.color = color
@@ -47,8 +51,6 @@ class Formiga:
         self.frame_delay = 0
         self.formigueiro_cx = formigueiro_cx
         self.formigueiro_cy = formigueiro_cy
-        self.ultima_comida_encontrada_cx = None
-        self.ultima_comida_encontrada_cy = None 
 
     def draw(self, superficie):
         centro_x = self.cx * tamanho_celula + tamanho_celula // 2
@@ -57,41 +59,68 @@ class Formiga:
         if self.carregando_comida:
             pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 3)
 
+    
     def move(self):
         self.frame_delay += 1
         if self.frame_delay >= 5:
             self.frame_delay = 0
-            if (self.cx == self.ultima_comida_encontrada_cx and 
-                self.cy == self.ultima_comida_encontrada_cy and 
-                not self.carregando_comida):
-                self.ultima_comida_encontrada_cx = None
-                self.ultima_comida_encontrada_cy = None
+
             if self.carregando_comida:
                 self.ir_para(self.formigueiro_cx, self.formigueiro_cy)
-            elif self.ultima_comida_encontrada_cx is not None and self.ultima_comida_encontrada_cy is not None:
-                self.ir_para(self.ultima_comida_encontrada_cx, self.ultima_comida_encontrada_cy)
+                if self.cx != self.formigueiro_cx or self.cy != self.formigueiro_cy:
+                    grade[self.cy][self.cx].feromonio += 1.0
             else:
-                dx = random.randint(-1, 1)
-                dy = random.randint(-1, 1)
+                melhor_opcao = None
+                melhor_valor = -1
+                distancia_atual = abs(self.cx - self.formigueiro_cx) + abs(self.cy - self.formigueiro_cy)
+                feromonio_local = grade[self.cy][self.cx].feromonio
 
-                novo_cx = max(0, min(self.cx + dx, cols - 1))
-                novo_cy = max(0, min(self.cy + dy, rows - 1))
+                for dx in [-1, 0, 1]:
+                    for dy in [-1, 0, 1]:
+                        if dx == 0 and dy == 0:
+                            continue
+                        nx, ny = self.cx + dx, self.cy + dy
+                        if 0 <= nx < cols and 0 <= ny < rows:
+                            valor = grade[ny][nx].feromonio
+                            distancia_nova = abs(nx - self.formigueiro_cx) + abs(ny - self.formigueiro_cy)
 
-                self.cx = novo_cx
-                self.cy = novo_cy
+                            if feromonio_local > 0:
+                                # Evita voltar para o formigueiro se estiver em trilha
+                                if valor > melhor_valor and distancia_nova > distancia_atual:
+                                    melhor_valor = valor
+                                    melhor_opcao = (nx, ny)
+                            else:
+                                if valor > melhor_valor:
+                                    melhor_valor = valor
+                                    melhor_opcao = (nx, ny)
+
+                if melhor_opcao:
+                    self.cx, self.cy = melhor_opcao
+                else:
+                    # Movimento aleatório
+                    dx = random.randint(-1, 1)
+                    dy = random.randint(-1, 1)
+                    novo_cx = max(0, min(self.cx + dx, cols - 1))
+                    novo_cy = max(0, min(self.cy + dy, rows - 1))
+                    self.cx = novo_cx
+                    self.cy = novo_cy
+
+                
+
     def tentar_coletar_comida(self, lista_de_comidas):
         for comida in lista_de_comidas:
             if comida.cx == self.cx and comida.cy == self.cy:
                 self.carregando_comida = True
                 lista_de_comidas.remove(comida)
+
     def tentar_entregar_comida(self, formigueiro_cx, formigueiro_cy):
         if self.carregando_comida and self.cx == formigueiro_cx and self.cy == formigueiro_cy:
             self.carregando_comida = False
-            return True  # comida entregue
+            return True
         return False
+
     def ir_para(self, destino_cx, destino_cy):
-        dx = 0
-        dy = 0
+        dx = dy = 0
         if self.cx < destino_cx:
             dx = 1
         elif self.cx > destino_cx:
@@ -100,26 +129,8 @@ class Formiga:
             dy = 1
         elif self.cy > destino_cy:
             dy = -1
-
-        novo_cx = max(0, min(self.cx + dx, cols - 1))
-        novo_cy = max(0, min(self.cy + dy, rows - 1))
-
-        self.cx = novo_cx
-        self.cy = novo_cy
-    def set_ultima_comida_encontrada(self, cx, cy):
-        self.ultima_comida_encontrada_cx = cx
-        self.ultima_comida_encontrada_cy = cy
-    def compartilhar_informacao(self, outras_formigas):
-        if self.carregando_comida and self.ultima_comida_encontrada_cx is not None:
-            for outra in outras_formigas:
-                if outra != self:
-                    dist = abs(outra.cx - self.cx) + abs(outra.cy - self.cy)
-                    if dist == 1:  # célula adjacente
-                        outra.set_ultima_comida_encontrada(
-                            self.ultima_comida_encontrada_cx,
-                            self.ultima_comida_encontrada_cy
-                    )
-
+        self.cx = max(0, min(self.cx + dx, cols - 1))
+        self.cy = max(0, min(self.cy + dy, rows - 1))
 
 class Comida:
     def __init__(self, cx, cy):
@@ -131,89 +142,68 @@ class Comida:
         centro_y = self.cy * tamanho_celula + tamanho_celula // 2
         pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 3)
 
-# ----- PYGAME SETUP -----
 pygame.init()
 DISPLAYSURF = pygame.display.set_mode((largura, altura))
 pygame.display.set_caption('Simulador de Formigueiro')
 clock = pygame.time.Clock()
 
-
 black = (0, 0, 0)
 CUSTO_NOVA_FORMIGA = 5
 LIMITE_FORMIGAS = 50
-FREQUENCIA_COMIDA = 120  # a cada 120 frames (~4 segundos com 30 FPS)
+FREQUENCIA_COMIDA = 120
 MAX_COMIDAS = 15
 contador_frames = 0
 
 pygame.mouse.set_visible(False)
-
-formigas = []
-for i in range(5):
-    formigas.append(Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy))
-comidas = []
-for i in range(5):
-    comida_x = random.randint(0, cols - 1)
-    comida_y = random.randint(0, rows - 1)
-    comidas.append(Comida(comida_x, comida_y))
+formigas = [Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy) for _ in range(5)]
+comidas = [Comida(random.randint(0, cols - 1), random.randint(0, rows - 1)) for _ in range(5)]
 energia_colonia = 0
 
-
-# ----- LOOP PRINCIPAL -----
 while True:
     for event in pygame.event.get():
         if event.type == QUIT:
             pygame.quit()
             sys.exit()
 
-    # Desenha cada célula da grade
+    for linha in grade:
+        for celula in linha:
+            celula.feromonio = max(0, celula.feromonio - 0.01)
+
     for y in range(rows):
         for x in range(cols):
             grade[y][x].desenhar(DISPLAYSURF, x, y)
 
-    
-
-    # Mover e desenhar as formigas
     for f in formigas:
         f.move()
         f.tentar_coletar_comida(comidas)
         if f.tentar_entregar_comida(formiguero_cx, formiguero_cy):
             energia_colonia += 1
         if energia_colonia >= CUSTO_NOVA_FORMIGA and len(formigas) < LIMITE_FORMIGAS:
-            nova_formiga = Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy)
-            formigas.append(nova_formiga)
+            formigas.append(Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy))
             energia_colonia -= CUSTO_NOVA_FORMIGA
-        f.compartilhar_informacao(formigas)
         f.draw(DISPLAYSURF)
 
     for c in comidas:
         c.draw(DISPLAYSURF)
-    
-    font = pygame.font.SysFont(None, 24)
-    texto = font.render(f'Energia: {energia_colonia}', True, (0, 0, 0))
-    proxima = max(0, CUSTO_NOVA_FORMIGA - energia_colonia)
-    texto1 = font.render(f'Faltam {proxima} para nova formiga', True, (0, 0, 0))
-    texto2 = font.render(f'Formigas: {len(formigas)}', True, (0, 0, 0))
 
-    DISPLAYSURF.blit(texto, (10, 10))       # primeira linha de texto
-    DISPLAYSURF.blit(texto1, (10, 30))
-    DISPLAYSURF.blit(texto2, (10, 50))      # segunda linha, mais abaixo
+    font = pygame.font.SysFont(None, 24)
+    DISPLAYSURF.blit(font.render(f'Energia: {energia_colonia}', True, (0, 0, 0)), (10, 10))
+    DISPLAYSURF.blit(font.render(f'Faltam {max(0, CUSTO_NOVA_FORMIGA - energia_colonia)} para nova formiga', True, (0, 0, 0)), (10, 30))
+    DISPLAYSURF.blit(font.render(f'Formigas: {len(formigas)}', True, (0, 0, 0)), (10, 50))
+
     contador_frames += 1
     if contador_frames >= FREQUENCIA_COMIDA:
         contador_frames = 0
-
         if len(comidas) < MAX_COMIDAS:
             tentativas = 0
-            while tentativas < 10:  # tenta no máximo 10 posições aleatórias
+            while tentativas < 10:
                 comida_x = random.randint(0, cols - 1)
                 comida_y = random.randint(0, rows - 1)
-
-                # Garante que a célula não seja o formigueiro nem tenha outra comida
                 if (comida_x != formiguero_cx or comida_y != formiguero_cy) and \
-                all(c.cx != comida_x or c.cy != comida_y for c in comidas):
+                   all(c.cx != comida_x or c.cy != comida_y for c in comidas):
                     comidas.append(Comida(comida_x, comida_y))
                     break
                 tentativas += 1
-
 
     pygame.display.update()
     clock.tick(30)
