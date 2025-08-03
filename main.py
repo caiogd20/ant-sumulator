@@ -120,6 +120,9 @@ clock = pygame.time.Clock()
 black = (0, 0, 0)
 CUSTO_NOVA_FORMIGA = 5
 LIMITE_FORMIGAS = 50
+FREQUENCIA_COMIDA = 120  # a cada 120 frames (~4 segundos com 30 FPS)
+MAX_COMIDAS = 15
+contador_frames = 0
 
 pygame.mouse.set_visible(False)
 
@@ -146,7 +149,7 @@ while True:
         for x in range(cols):
             grade[y][x].desenhar(DISPLAYSURF, x, y)
 
-    
+
 
     # Mover e desenhar as formigas
     for f in formigas:
@@ -162,7 +165,7 @@ while True:
 
     for c in comidas:
         c.draw(DISPLAYSURF)
-    
+
     font = pygame.font.SysFont(None, 24)
     texto = font.render(f'Energia: {energia_colonia}', True, (0, 0, 0))
     proxima = max(0, CUSTO_NOVA_FORMIGA - energia_colonia)
@@ -172,6 +175,22 @@ while True:
     DISPLAYSURF.blit(texto, (10, 10))       # primeira linha de texto
     DISPLAYSURF.blit(texto1, (10, 30))
     DISPLAYSURF.blit(texto2, (10, 50))      # segunda linha, mais abaixo
+    contador_frames += 1
+    if contador_frames >= FREQUENCIA_COMIDA:
+        contador_frames = 0
+
+        if len(comidas) < MAX_COMIDAS:
+            tentativas = 0
+            while tentativas < 10:  # tenta no máximo 10 posições aleatórias
+                comida_x = random.randint(0, cols - 1)
+                comida_y = random.randint(0, rows - 1)
+
+                # Garante que a célula não seja o formigueiro nem tenha outra comida
+                if (comida_x != formiguero_cx or comida_y != formiguero_cy) and \
+                all(c.cx != comida_x or c.cy != comida_y for c in comidas):
+                    comidas.append(Comida(comida_x, comida_y))
+                    break
+                tentativas += 1
 
 
     pygame.display.update()
