@@ -20,10 +20,13 @@ class Celula:
         self.estado = "normal" 
         if tipo == "formigueiro":
             self.cor = cor_formigueiro
+        elif tipo == "fonte_comida":
+            self.cor = (180, 120, 0)  # uma cor diferente, como marrom-amarelada
         else:
             self.cor = cor_grama()
         self.comida = comida
         self.pisada = pisada
+        self.timer_gerar_comida = 0
 
     def desenhar(self, superficie, x, y):
         pygame.draw.rect(
@@ -40,11 +43,12 @@ class Celula:
                 tamanho
             )
         if self.pisada > 0:
+            raio = min(tamanho_celula // 2 - 2, int(self.pisada * 2))
             pygame.draw.circle(
                 superficie,
                 cor_caminho,
                 (x * tamanho_celula + tamanho_celula // 2, y * tamanho_celula + tamanho_celula // 2),
-                int(tamanho_celula // 4 + self.pisada * 2)
+                raio
             )
 
 
@@ -121,6 +125,9 @@ class Formiga:
 
         novo_cx = max(0, min(self.cx + dx, cols - 1))
         novo_cy = max(0, min(self.cy + dy, rows - 1))
+        celula = grade[novo_cy][novo_cx]
+        if celula.tipo == "grama":
+            celula.pisada += 1  # aumenta o pisada da célula
 
         self.cx = novo_cx
         self.cy = novo_cy
@@ -155,21 +162,21 @@ black = (0, 0, 0)
 CUSTO_NOVA_FORMIGA = 5
 LIMITE_FORMIGAS = 50
 FREQUENCIA_COMIDA = 120  # a cada 120 frames (~4 segundos com 30 FPS)
-MAX_COMIDAS = 50
 contador_frames = 0
 contador_pisadas = 0
+energia_colonia = 0  # energia inicial da colônia
 
 pygame.mouse.set_visible(False)
 
 formigas = []
-for i in range(1):
+for i in range(5):  # cria 5 formigas iniciais
     formigas.append(Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy))
-for i in range(5):
-    comida_x = random.randint(0, cols - 1)
-    comida_y = random.randint(0, rows - 1)
-    quanntidade_comida = random.randint(1, 3)  # quantidade de comida entre 1 e 3
-    grade[comida_y][comida_x].comida += quanntidade_comida
-energia_colonia = 0
+grade[0][0] = Celula(tipo="fonte_comida")  # canto superior esquerdo
+grade[0][cols - 1] = Celula(tipo="fonte_comida")  # canto superior direito
+grade[rows - 1][0] = Celula(tipo="fonte_comida")  # canto inferior esquerdo
+grade[rows - 1][cols - 1] = Celula(tipo="fonte_comida")  # canto inferior direito  # substitui uma célula aleatória por uma fonte de comida
+
+
 
 
 # ----- LOOP PRINCIPAL -----
@@ -189,6 +196,25 @@ while True:
     for y in range(rows):
         for x in range(cols):
             grade[y][x].desenhar(DISPLAYSURF, x, y)
+            celula = grade[y][x]
+
+            # Se for uma fonte de comida
+            if celula.tipo == "fonte_comida":
+                celula.timer_gerar_comida += 1
+                if celula.timer_gerar_comida >= 60:  # a cada 2 segundos (30 FPS)
+                    celula.timer_gerar_comida = 0
+
+                    # Tenta gerar comida em volta
+                    for dx in [-1, 0, 1]:
+                        for dy in [-1, 0, 1]:
+                            if dx == 0 and dy == 0:
+                                continue
+                            nx, ny = x + dx, y + dy
+                            if 0 <= nx < cols and 0 <= ny < rows:
+                                vizinha = grade[ny][nx]
+                                if vizinha.tipo == "grama" and vizinha.comida == 0:
+                                    vizinha.comida = 3  # valor inicial da comida
+                                    break  # só gera uma por ciclo
 
 
 
@@ -211,33 +237,15 @@ while True:
     proxima = max(0, CUSTO_NOVA_FORMIGA - energia_colonia)
     texto1 = font.render(f'Faltam {proxima} para nova formiga', True, (0, 0, 0))
     texto2 = font.render(f'Formigas: {len(formigas)}', True, (0, 0, 0))
-    texto3 = font.render(f'Comida total: {sum(c.comida for row in grade for c in row)}', True, (0, 0, 0))
-    texto4 = font.render(f'Comida máxima: {MAX_COMIDAS}', True, (0, 0, 0))
+
+
 
     DISPLAYSURF.blit(texto, (10, 10))       # primeira linha de texto
     DISPLAYSURF.blit(texto1, (10, 30))
     DISPLAYSURF.blit(texto2, (10, 50))      # segunda linha, mais abaixo
-    DISPLAYSURF.blit(texto3, (10, 70))      # terceira linha, mais abaixo
-    DISPLAYSURF.blit(texto4, (10, 90))
-    contador_frames += 1
-    if contador_frames >= FREQUENCIA_COMIDA:
-        contador_frames = 0
-        
-        total_comida = sum(c.comida for row in grade for c in row)
-        if total_comida < MAX_COMIDAS:
-            tentativas = 0
-            while tentativas < 10:  # tenta no máximo 10 posições aleatórias
-                comida_x = random.randint(0, cols - 1)
-                comida_y = random.randint(0, rows - 1)
-
-                # Garante que a célula não seja o formigueiro e não tenha sido pisada
-                if (comida_x != formiguero_cx or comida_y != formiguero_cy) and grade[comida_y][comida_x].tipo == "grama" and grade[comida_y][comida_x].comida == 0:
-                    quanntidade_comida = random.randint(1, 3)  # quantidade de comida entre 1 e 3
-                    grade[comida_y][comida_x].comida += quanntidade_comida
-                    #comidas.append(Comida(comida_x, comida_y))
-                    break
-                tentativas += 1
-
+     # terceira linha, mais abaixo
+   
+    
 
     pygame.display.update()
     clock.tick(30)
