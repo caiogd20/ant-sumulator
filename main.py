@@ -1,18 +1,42 @@
 import pygame, sys
 import random
-from pygame.locals import QUIT
+from pygame.locals import QUIT, KEYDOWN, K_q, K_e
 
-# Tamanho da tela
+# ----- CONFIGURAÇÕES -----
 largura, altura = 500, 500
 tamanho_celula = 20
 cols = largura // tamanho_celula
 rows = altura // tamanho_celula
+niveis = 3
 
-# cor das células
+# ----- CORES -----
 cor_grama =lambda: (0, random.randint(120, 180), 0)
 cor_formigueiro = (139, 69, 19)  # marrom
 cor_caminho = (210, 180, 140)  # cor areia
+cor_celula = (60, 60, 60)  # cinza escuro
 
+# ----- CLASSES -----
+class CelulaInterna:
+    def __init__(self, tipo="tunnel"):
+        self.tipo = tipo
+        self.comida = 0
+        self.pisada = 0
+
+    def desenhar(self, superficie, x, y):
+        if self.tipo == "parede":
+            cor = (30, 30, 30) 
+        elif self.tipo == "comida":
+            cor = (200, 0, 0) 
+        elif self.tipo == "ninho":
+            cor = (200, 200, 50) 
+        else:
+            cor = cor_celula
+
+        pygame.draw.rect(
+            superficie,
+            cor,
+            (x * tamanho_celula, y * tamanho_celula, tamanho_celula, tamanho_celula)
+        )
 class Celula:
     def __init__(self, tipo="grama", comida=0, pisada=0):
         # Variações leves de verde
@@ -29,7 +53,7 @@ class Celula:
         self.timer_gerar_comida = 0
         self.feromonio = 0.0  # inicializa o feromônio
 
-    def desenhar(self, superficie, x, y):
+    def desenhar_sureficie(self, superficie, x, y):
         pygame.draw.rect(
             superficie,
             self.cor,
@@ -58,12 +82,17 @@ class Celula:
             s.set_alpha(80)
             s.fill(cor)
             superficie.blit(s, (x * tamanho_celula, y * tamanho_celula))
+    
+        
 
 
 
 # Inicializa a grade com células do tipo "grama"
 grade = [[Celula() for _ in range(cols)] for _ in range(rows)]
-# Define posição central para o formigueiro
+formigueiro = [
+    [[CelulaInterna() for _ in range(cols)] for _ in range(rows)]
+    for _ in range(niveis)
+    ]
 formiguero_cx = cols // 2
 formiguero_cy = rows // 2
 # Define a célula do formigueiro
@@ -73,9 +102,10 @@ grade[formiguero_cy][formiguero_cx] = Celula(tipo="formigueiro")
 def tem_formiga_em(cx, cy, formigas):
     return any(f.cx == cx and f.cy == cy for f in formigas)
 class Formiga:
-    def __init__(self, cx, cy , color, formigueiro_cx, formigueiro_cy):
+    def __init__(self, cx, cy , color, formigueiro_cx, formigueiro_cy,cz=0):
         self.cx = cx
         self.cy = cy
+        self.cz = cz  # camada z, não usada no momento
         self.color = color
         self.carregando_comida = False
         self.frame_delay = 0
@@ -226,7 +256,7 @@ pygame.mouse.set_visible(False)
 
 formigas = []
 for i in range(5):  # cria 5 formigas iniciais
-    formigas.append(Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy))
+    formigas.append(Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy,cz=0))
 fonte_comida = random.randint(0, 3)
 if fonte_comida == 0:
     grade[0][0] = Celula(tipo="fonte_comida")  # canto superior esquerdo
@@ -236,6 +266,7 @@ elif fonte_comida == 2:
     grade[rows - 1][0] = Celula(tipo="fonte_comida")  # canto inferior esquerdo
 else:
     grade[rows - 1][cols - 1] = Celula(tipo="fonte_comida")  # canto inferior direito  # substitui uma célula aleatória por uma fonte de comida
+nivel_visivel = 0  # nível inicial visível
 
 
 
@@ -245,6 +276,11 @@ while True:
         if event.type == QUIT:
             pygame.quit()
             sys.exit()
+        elif event.type == KEYDOWN:
+            if event.key == K_q:
+                nivel_visivel = max(0, nivel_visivel - 1)
+            elif event.key == K_e:
+                nivel_visivel = min(niveis - 1, nivel_visivel + 1)
     contador_pisadas += 1
     if contador_pisadas >= 5:  # controla a frequência de "crescimento"
         contador_pisadas = 0
@@ -255,10 +291,15 @@ while True:
                 if celula.feromonio > 0:
                     celula.feromonio = max(0, celula.feromonio - 0.1)
     # Desenha cada célula da grade
-    for y in range(rows):
-        for x in range(cols):
-            grade[y][x].desenhar(DISPLAYSURF, x, y)
-            celula = grade[y][x]
+    if nivel_visivel == 0:
+        for y in range(rows):
+            for x in range(cols):
+                grade[y][x].desenhar_sureficie(DISPLAYSURF, x, y)
+                celula = grade[y][x]
+    else:
+        for y in range(rows):
+            for x in range(cols):
+                formigueiro[nivel_visivel - 1][y][x].desenhar(DISPLAYSURF, x, y)
 
             # Se for uma fonte de comida
             if celula.tipo == "fonte_comida":
@@ -294,7 +335,8 @@ while True:
 
         f.verificar_idade(MAX_IDADE)
         if f.viva:
-            f.draw(DISPLAYSURF)
+            if f.cz == nivel_visivel:
+                f.draw(DISPLAYSURF)
             formigas_vivas.append(f)
     formigas = formigas_vivas  # atualiza a lista de formigas para manter apenas as vivas
 
