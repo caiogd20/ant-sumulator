@@ -1,6 +1,7 @@
 import pygame, sys
 import random
 from pygame.locals import QUIT, KEYDOWN, K_q, K_e
+import json
 
 # ----- CONFIGURAÇÕES -----
 largura, altura = 500, 500
@@ -230,7 +231,52 @@ class Formiga:
     def verificar_idade(self, max_idade):
         if self.idade >= max_idade:
             self.morrer() 
-                        
+# ----- salvar e caregar -----
+def salvar_jogo(caminho="salvamento.json"):
+    dados = {
+        "formigas": [
+            {
+                "cx": f.cx,
+                "cy": f.cy,
+                "cz": getattr(f, "cz", 0),
+                "idade": f.idade,
+                "carregando_comida": f.carregando_comida
+            }
+            for f in formigas
+        ],
+        "superficie": [
+            [vars(cel) for cel in linha]
+            for linha in grade
+        ],
+        "energia_colonia": energia_colonia,
+        "contador_frames": contador_frames,
+    }
+    with open(caminho, "w") as f:
+        json.dump(dados, f, indent=2)
+
+def carregar_jogo(caminho="salvamento.json"):
+    global formigas, grade, energia_colonia, contador_frames
+
+    with open(caminho, "r") as f:
+        dados = json.load(f)
+
+    formigas = [
+        Formiga(d["cx"], d["cy"], black, formiguero_cx, formiguero_cy, d["cz"])
+        for d in dados["formigas"]
+    ]
+    for f, d in zip(formigas, dados["formigas"]):
+        f.idade = d["idade"]
+        f.carregando_comida = d["carregando_comida"]
+
+    # Superfície
+    for y, linha in enumerate(dados["superficie"]):
+        for x, cel in enumerate(linha):
+            grade[y][x].comida = cel["comida"]
+            grade[y][x].pisada = cel["pisada"]
+
+    energia_colonia = dados.get("energia_colonia", 0)
+    contador_frames = dados.get("contador_frames", 0)
+
 
 
 
@@ -281,6 +327,11 @@ while True:
                 nivel_visivel = max(0, nivel_visivel - 1)
             elif event.key == K_e:
                 nivel_visivel = min(niveis - 1, nivel_visivel + 1)
+            elif event.key == pygame.K_F5:
+                salvar_jogo()
+            elif event.key == pygame.K_F9:
+                carregar_jogo()
+
     contador_pisadas += 1
     if contador_pisadas >= 5:  # controla a frequência de "crescimento"
         contador_pisadas = 0
