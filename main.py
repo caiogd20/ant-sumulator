@@ -27,6 +27,7 @@ class Celula:
         self.comida = comida
         self.pisada = pisada
         self.timer_gerar_comida = 0
+        self.feromonio = 0.0  # inicializa o feromônio
 
     def desenhar(self, superficie, x, y):
         pygame.draw.rect(
@@ -50,6 +51,14 @@ class Celula:
                 (x * tamanho_celula + tamanho_celula // 2, y * tamanho_celula + tamanho_celula // 2),
                 raio
             )
+        if self.feromonio > 0:
+            intensidade = min(255, int(self.feromonio * 10))
+            cor = (0, 0, intensidade)
+            s = pygame.Surface((tamanho_celula, tamanho_celula))
+            s.set_alpha(80)
+            s.fill(cor)
+            superficie.blit(s, (x * tamanho_celula, y * tamanho_celula))
+
 
 
 # Inicializa a grade com células do tipo "grama"
@@ -61,6 +70,8 @@ formiguero_cy = rows // 2
 grade[formiguero_cy][formiguero_cx] = Celula(tipo="formigueiro")
 
 # ----- FORMIGA -----
+def tem_formiga_em(cx, cy, formigas):
+    return any(f.cx == cx and f.cy == cy for f in formigas)
 class Formiga:
     def __init__(self, cx, cy , color, formigueiro_cx, formigueiro_cy):
         self.cx = cx
@@ -84,21 +95,50 @@ class Formiga:
             self.frame_delay = 0
             if self.carregando_comida:
                 self.ir_para(self.formigueiro_cx, self.formigueiro_cy)
+                if (self.cx != self.formigueiro_cx or
+                        self.cy != self.formigueiro_cy):
+                    celula = grade[self.cy][self.cx]
+                    celula.feromonio += 5.0
             else:
                 comida_adjacente = self.detectar_comida_adjacente()
                 if comida_adjacente:
                     self.ir_para(*comida_adjacente)
                 else:
-                    dx = random.randint(-1, 1)
-                    dy = random.randint(-1, 1)
+                    melhor_opcao = (self.cx, self.cy)
+                    melhor_opcao = None
+                    maior_distancia = -1
 
-                    novo_cx = max(0, min(self.cx + dx, cols - 1))
-                    novo_cy = max(0, min(self.cy + dy, rows - 1))
-                    celula = grade[novo_cy][novo_cx]
-                    if celula.tipo == "grama":
-                        celula.pisada += 1  # aumenta o pisada da célula
-                    self.cx = novo_cx
-                    self.cy = novo_cy
+                    for dx in [-1, 0, 1]:
+                        for dy in [-1, 0, 1]:
+                            if dx == 0 and dy == 0:
+                                continue
+                            nx = self.cx + dx
+                            ny = self.cy + dy
+                            if 0 <= nx < cols and 0 <= ny < rows:
+                                cel = grade[ny][nx]
+                                if cel.feromonio > 0 and not tem_formiga_em(nx, ny, formigas):
+                                    distancia = abs(nx - self.formigueiro_cx) + abs(ny - self.formigueiro_cy)
+                                    if distancia > maior_distancia:
+                                        maior_distancia = distancia
+                                        melhor_opcao = (nx, ny)
+                    # Aplica movimento
+                    if melhor_opcao:
+                        self.cx, self.cy = melhor_opcao
+                    else:
+                        # Movimento aleatório se não encontrar feromônio
+                        tentativas = 0
+                        while tentativas < 10:
+                            dx = random.randint(-1, 1)
+                            dy = random.randint(-1, 1)
+                            novo_cx = max(0, min(self.cx + dx, cols - 1))
+                            novo_cy = max(0, min(self.cy + dy, rows - 1))
+                            if not tem_formiga_em(novo_cx, novo_cy, formigas):
+                                self.cx = novo_cx
+                                self.cy = novo_cy
+                                break
+                            
+
+    # Tenta coletar comida se não estiver carregando
     def tentar_coletar_comida(self):
        if not self.carregando_comida:
             celula = grade[self.cy][self.cx]
@@ -127,7 +167,7 @@ class Formiga:
         novo_cy = max(0, min(self.cy + dy, rows - 1))
         celula = grade[novo_cy][novo_cx]
         if celula.tipo == "grama":
-            celula.pisada += 1  # aumenta o pisada da célula
+            celula.pisada += 5  # aumenta o pisada da célula
 
         self.cx = novo_cx
         self.cy = novo_cy
@@ -160,7 +200,7 @@ clock = pygame.time.Clock()
 
 black = (0, 0, 0)
 CUSTO_NOVA_FORMIGA = 5
-LIMITE_FORMIGAS = 50
+LIMITE_FORMIGAS = 30
 FREQUENCIA_COMIDA = 120  # a cada 120 frames (~4 segundos com 30 FPS)
 contador_frames = 0
 contador_pisadas = 0
@@ -192,6 +232,8 @@ while True:
             for celula in linha:
                 if celula.pisada > 0:
                     celula.pisada = max(0, celula.pisada - 0.1)
+                if celula.feromonio > 0:
+                    celula.feromonio = max(0, celula.feromonio - 0.1)
     # Desenha cada célula da grade
     for y in range(rows):
         for x in range(cols):
