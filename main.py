@@ -80,12 +80,18 @@ class Formiga:
         self.carregando_comida = False
         self.frame_delay = 0
         self.formigueiro_cx = formigueiro_cx
-        self.formigueiro_cy = formigueiro_cy 
+        self.formigueiro_cy = formigueiro_cy
+        self.estado = "normal"  # estado inicial da formiga
+        # o etado não é usado no momento, mas pode ser útil para futuras implementações
+        self.idade = 0  # idade da formiga, pode ser usado para simular envelhecimento ou morte
+        self.viva = True  # estado de vida da formiga, pode ser usado para simular morte 
 
     def draw(self, superficie):
         centro_x = self.cx * tamanho_celula + tamanho_celula // 2
         centro_y = self.cy * tamanho_celula + tamanho_celula // 2
-        pygame.draw.circle(superficie, self.color, (centro_x, centro_y), 5)
+        envelhecimento = min(255, int((self.idade / MAX_IDADE) * 200))
+        cor_desbotada = (envelhecimento, envelhecimento, envelhecimento)
+        pygame.draw.circle(superficie, cor_desbotada, (centro_x, centro_y), 5)
         if self.carregando_comida:
             pygame.draw.circle(superficie, (255, 0, 0), (centro_x, centro_y), 2)
 
@@ -93,6 +99,7 @@ class Formiga:
         self.frame_delay += 1
         if self.frame_delay >= 5:
             self.frame_delay = 0
+            self.idade += 1  # aumenta a idade da formiga a cada movimento
             if self.carregando_comida:
                 self.ir_para(self.formigueiro_cx, self.formigueiro_cy)
                 if (self.cx != self.formigueiro_cx or
@@ -185,6 +192,14 @@ class Formiga:
                     if celula.comida > 0:
                         return cordenadas  # retorna a célula com comida
         return None  # se não encontrar comida, retorna None
+    def morrer(self):
+        self.viva = False
+        if self.carregando_comida:
+            celula = grade[self.cy][self.cx]
+            celula.comida += 1
+    def verificar_idade(self, max_idade):
+        if self.idade >= max_idade:
+            self.morrer() 
                         
 
 
@@ -200,7 +215,8 @@ clock = pygame.time.Clock()
 
 black = (0, 0, 0)
 CUSTO_NOVA_FORMIGA = 5
-LIMITE_FORMIGAS = 30
+LIMITE_FORMIGAS = 10
+MAX_IDADE = 3000  # por exemplo, 3000 frames = 100 segundos a 30 FPS
 FREQUENCIA_COMIDA = 120  # a cada 120 frames (~4 segundos com 30 FPS)
 contador_frames = 0
 contador_pisadas = 0
@@ -211,11 +227,15 @@ pygame.mouse.set_visible(False)
 formigas = []
 for i in range(5):  # cria 5 formigas iniciais
     formigas.append(Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy))
-grade[0][0] = Celula(tipo="fonte_comida")  # canto superior esquerdo
-grade[0][cols - 1] = Celula(tipo="fonte_comida")  # canto superior direito
-grade[rows - 1][0] = Celula(tipo="fonte_comida")  # canto inferior esquerdo
-grade[rows - 1][cols - 1] = Celula(tipo="fonte_comida")  # canto inferior direito  # substitui uma célula aleatória por uma fonte de comida
-
+fonte_comida = random.randint(0, 3)
+if fonte_comida == 0:
+    grade[0][0] = Celula(tipo="fonte_comida")  # canto superior esquerdo
+elif fonte_comida == 1:
+    grade[0][cols - 1] = Celula(tipo="fonte_comida")  # canto superior direito
+elif fonte_comida == 2:
+    grade[rows - 1][0] = Celula(tipo="fonte_comida")  # canto inferior esquerdo
+else:
+    grade[rows - 1][cols - 1] = Celula(tipo="fonte_comida")  # canto inferior direito  # substitui uma célula aleatória por uma fonte de comida
 
 
 
@@ -261,6 +281,7 @@ while True:
 
 
     # Mover e desenhar as formigas
+    formigas_vivas = []
     for f in formigas:
         f.move()
         f.tentar_coletar_comida()
@@ -270,7 +291,13 @@ while True:
             nova_formiga = Formiga(formiguero_cx, formiguero_cy, black, formiguero_cx, formiguero_cy)
             formigas.append(nova_formiga)
             energia_colonia -= CUSTO_NOVA_FORMIGA
-        f.draw(DISPLAYSURF)
+
+        f.verificar_idade(MAX_IDADE)
+        if f.viva:
+            f.draw(DISPLAYSURF)
+            formigas_vivas.append(f)
+    formigas = formigas_vivas  # atualiza a lista de formigas para manter apenas as vivas
+
 
     
 
