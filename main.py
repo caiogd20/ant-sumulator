@@ -98,6 +98,25 @@ formiguero_cx = cols // 2
 formiguero_cy = rows // 2
 # Define a célula do formigueiro
 grade[formiguero_cy][formiguero_cx] = Celula(tipo="formigueiro")
+# ----- FUNÇÕES -----
+def gerar_comida(celula, x, y):
+    # Se for uma fonte de comida
+            if celula.tipo == "fonte_comida":
+                celula.timer_gerar_comida += 1
+                if celula.timer_gerar_comida >= 60:  # a cada 2 segundos (30 FPS)
+                    celula.timer_gerar_comida = 0
+
+                    # Tenta gerar comida em volta
+                    for dx in [-1, 0, 1]:
+                        for dy in [-1, 0, 1]:
+                            if dx == 0 and dy == 0:
+                                continue
+                            nx, ny = x + dx, y + dy
+                            if 0 <= nx < cols and 0 <= ny < rows:
+                                vizinha = grade[ny][nx]
+                                if vizinha.tipo == "grama" and vizinha.comida == 0:
+                                    vizinha.comida = 3  # valor inicial da comida
+                                    break  # só gera uma por ciclo
 
 # ----- FORMIGA -----
 def tem_formiga_em(cx, cy, formigas):
@@ -347,28 +366,13 @@ while True:
             for x in range(cols):
                 grade[y][x].desenhar_sureficie(DISPLAYSURF, x, y)
                 celula = grade[y][x]
+                gerar_comida(celula, x, y)
     else:
         for y in range(rows):
             for x in range(cols):
                 formigueiro[nivel_visivel - 1][y][x].desenhar(DISPLAYSURF, x, y)
 
-            # Se for uma fonte de comida
-            if celula.tipo == "fonte_comida":
-                celula.timer_gerar_comida += 1
-                if celula.timer_gerar_comida >= 60:  # a cada 2 segundos (30 FPS)
-                    celula.timer_gerar_comida = 0
-
-                    # Tenta gerar comida em volta
-                    for dx in [-1, 0, 1]:
-                        for dy in [-1, 0, 1]:
-                            if dx == 0 and dy == 0:
-                                continue
-                            nx, ny = x + dx, y + dy
-                            if 0 <= nx < cols and 0 <= ny < rows:
-                                vizinha = grade[ny][nx]
-                                if vizinha.tipo == "grama" and vizinha.comida == 0:
-                                    vizinha.comida = 3  # valor inicial da comida
-                                    break  # só gera uma por ciclo
+            
 
 
 
@@ -399,12 +403,14 @@ while True:
     proxima = max(0, CUSTO_NOVA_FORMIGA - energia_colonia)
     texto1 = font.render(f'Faltam {proxima} para nova formiga', True, (0, 0, 0))
     texto2 = font.render(f'Formigas: {len(formigas)}', True, (0, 0, 0))
+    texto3 = font.render(f'Nivel: {nivel_visivel + 1}', True, (0, 0, 0))
 
 
 
     DISPLAYSURF.blit(texto, (10, 10))       # primeira linha de texto
     DISPLAYSURF.blit(texto1, (10, 30))
-    DISPLAYSURF.blit(texto2, (10, 50))      # segunda linha, mais abaixo
+    DISPLAYSURF.blit(texto2, (10, 50))
+    DISPLAYSURF.blit(texto3, (10,70))      # segunda linha, mais abaixo
      # terceira linha, mais abaixo
    
     
